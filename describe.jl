@@ -8,48 +8,33 @@ if isfile(filename)
     data = CSV.read(filename, DataFrame)
 end
 
-data = sort(select(data, findall(col -> eltype(col) <: Union{Int64, Missing, Float64}, eachcol(data))))
-# data = first(data, 5)
-features = names(data)
-metrics = [:Count, :Mean, :Std, :Min, :"25%", :"50%", :"75%", :Max]
-stats = DataFrame(features = features)
-for metric in metrics
-    stats[!, metric] .= 0.0
+# Collect data and build desc dataframe
+selection = findall(col -> eltype(col) <: Union{Number, Missing}, eachcol(data))
+select!(data, selection)
+desc = DataFrame(features = names(data))
+for agg in [:Count, :Mean, :Std, :Min, :"25%", :"50%", :"75%", :Max]
+    desc[!, agg] .= 0.0
 end
-stats[!, :Min] .= Inf
-stats[!, :Max] .= -Inf
+desc[!, :Min] .= Inf
+desc[!, :Max] .= -Inf
 
-i = 1
-for column in eachcol(data)
-    total, empty = 0, 0
+# Get all aggregates
+for (i, column) in enumerate(eachcol(data))
+    column = skipmissing(sort!(column))
+    total = 0
     for val in column
-        if !ismissing(val)
-            total += val
-            stats[!, :Min][i] = min(stats[!, :Min][i], val)
-            stats[!, :Max][i] = max(stats[!, :Max][i], val)
-        else
-            empty += 1
-        end
-        stats[!, :Count][i] += 1
+        total += val
+        desc[!, :Min][i] = (val < desc[!, :Min][i]) ? val : desc[!, :Min][i]
+        desc[!, :Max][i] = (val > desc[!, :Max][i]) ? val : desc[!, :Max][i]
+        desc[!, :Count][i] += 1
     end
-    stats[!, :Mean][i] = total / (stats[!, :Count][i] - empty)
-    i += 1
+    desc[!, :Mean][i] = total / desc[!, :Count][i]
+    desc[!, :Std][i] = sqrt(sum((column .- desc[!, :Mean][i]).^2) / (desc[!, :Count][i] - 1))
+    desc[!, :"25%"][i] = column[floor(Int, desc[!, :Count][i] * 0.25)]
+    desc[!, :"50%"][i] = column[floor(Int, desc[!, :Count][i] * 0.50)]
+    desc[!, :"75%"][i] = column[floor(Int, desc[!, :Count][i] * 0.75)]
 end
 
-i = 1
-for column in eachcol(data)
-    sum_of_squares, empty = 0, 0
-    for val in column
-        if !ismissing(val)
-            sum_of_squares += (val - stats[!, :Mean][i])^2
-        else
-            empty += 1
-        end
-    end
-    stats[!, :Std][i] = sqrt(sum_of_squares / (stats[!, :Count][i] - empty - 1))
-    i += 1
-end
-
-println(stats)
+println(desc)
 print(describe(data))
-# print(data)
+print(first(data, 20))
