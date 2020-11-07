@@ -43,12 +43,4 @@ for (i, column) in enumerate(eachcol(data))
 	desc[!, :"75%"][i] = Q(column, 0.75)
 end
 
-for (i, column) in enumerate(eachcol(data))
-	for val in column
-		@print("$i", val)
-	end
-end
-
-# desc = DataFrame(permutedims(convert(Matrix, desc)))
-# for column in desc
-
+desc = DataFrame(permutedims(convert(Matrix, desc)))
