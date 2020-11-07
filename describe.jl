@@ -18,9 +18,16 @@ end
 desc[!, :Min] .= Inf
 desc[!, :Max] .= -Inf
 
+# Formulae
+m(p) = 1 - p
+n(x) = size(x)[1]
+j(x, p) = Int(floor(n(x)*p + m(p)))
+γ(x, p) = n(x)*p + m(p) - j(x, p)
+Q(x, p) = (1-γ(x, p))*x[j(x, p)] + γ(x, p)*x[j(x, p)+1]
+
 # Get all aggregates
 for (i, column) in enumerate(eachcol(data))
-    column = skipmissing(sort!(column))
+    column = collect(skipmissing(sort!(column)))
     total = 0
     for val in column
         total += val
@@ -29,12 +36,19 @@ for (i, column) in enumerate(eachcol(data))
         desc[!, :Count][i] += 1
     end
     desc[!, :Mean][i] = total / desc[!, :Count][i]
-    desc[!, :Std][i] = sqrt(sum((column .- desc[!, :Mean][i]).^2) / (desc[!, :Count][i] - 1))
-    desc[!, :"25%"][i] = column[floor(Int, desc[!, :Count][i] * 0.25)]
-    desc[!, :"50%"][i] = column[floor(Int, desc[!, :Count][i] * 0.50)]
-    desc[!, :"75%"][i] = column[floor(Int, desc[!, :Count][i] * 0.75)]
+	desc[!, :Std][i] = sqrt(sum((column .- desc[!, :Mean][i]).^2) / 
+		(desc[!, :Count][i] - 1))
+    desc[!, :"25%"][i] =  Q(column, 0.25)
+    desc[!, :"50%"][i] = Q(column, 0.50)
+	desc[!, :"75%"][i] = Q(column, 0.75)
 end
 
-println(desc)
-print(describe(data))
-print(first(data, 20))
+for (i, column) in enumerate(eachcol(data))
+	for val in column
+		@print("$i", val)
+	end
+end
+
+# desc = DataFrame(permutedims(convert(Matrix, desc)))
+# for column in desc
+
